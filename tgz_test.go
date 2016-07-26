@@ -2,6 +2,9 @@ package tgz
 
 import (
 	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -40,6 +43,16 @@ func TestAddingAFileByContent(t *testing.T) {
 	if tarStats.Size() > 2048 {
 		t.Fatalf("tar is much larger than expected, should be < 2048 but is %d byes", tarStats.Size())
 	}
+	tar.Close()
+
+	err, files := decompressAndListFiles(tgz.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := files["test.txt"]; !ok {
+		t.Fatal("Expected tgz to contain test.txt but it didnt")
+	}
+
 }
 
 func TestAddingTwoFilesByContent(t *testing.T) {
@@ -69,6 +82,18 @@ func TestAddingTwoFilesByContent(t *testing.T) {
 	if tarStats.Size() > 2048 {
 		t.Fatalf("tar is much larger than expected, should be < 2048 but is %d byes", tarStats.Size())
 	}
+	tar.Close()
+
+	err, files := decompressAndListFiles(tgz.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := files["test.txt"]; !ok {
+		t.Fatal("Expected tgz to contain test.txt but it didnt")
+	}
+	if _, ok := files["test2.txt"]; !ok {
+		t.Fatal("Expected tgz to contain test2.txt but it didnt")
+	}
 }
 
 func TestAddingAFileByPath(t *testing.T) {
@@ -95,6 +120,15 @@ func TestAddingAFileByPath(t *testing.T) {
 	}
 	if tarStats.Size() > 2048 {
 		t.Fatalf("tar is much larger than expected, should be < 2048 but is %d byes", tarStats.Size())
+	}
+	tar.Close()
+
+	err, files := decompressAndListFiles(tgz.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := files["test.txt"]; !ok {
+		t.Fatal("Expected tgz to contain test.txt but it didnt")
 	}
 }
 
@@ -127,6 +161,18 @@ func TestAddingTwoFilesByPath(t *testing.T) {
 	if tarStats.Size() > 2048 {
 		t.Fatalf("tar is much larger than expected, should be < 2048 but is %d byes", tarStats.Size())
 	}
+	tar.Close()
+
+	err, files := decompressAndListFiles(tgz.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := files["test.txt"]; !ok {
+		t.Fatal("Expected tgz to contain test.txt but it didnt")
+	}
+	if _, ok := files["test2.txt"]; !ok {
+		t.Fatal("Expected tgz to contain test.txt but it didnt")
+	}
 }
 
 func TestAddingMixedFiles(t *testing.T) {
@@ -157,6 +203,18 @@ func TestAddingMixedFiles(t *testing.T) {
 	}
 	if tarStats.Size() > 2048 {
 		t.Fatalf("tar is much larger than expected, should be < 2048 but is %d byes", tarStats.Size())
+	}
+	tar.Close()
+
+	err, files := decompressAndListFiles(tgz.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := files["test.txt"]; !ok {
+		t.Fatal("Expected tgz to contain test.txt but it didnt")
+	}
+	if _, ok := files["test2.txt"]; !ok {
+		t.Fatal("Expected tgz to contain test.txt but it didnt")
 	}
 }
 
@@ -195,6 +253,17 @@ func TestAddingFilesInSubdirs(t *testing.T) {
 	}
 	if tarStats.Size() > 2048 {
 		t.Fatalf("tar is much larger than expected, should be < 2048 but is %d byes", tarStats.Size())
+	}
+	tar.Close()
+
+	err, outFiles := decompressAndListFiles(tgz.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for dest, _ := range files {
+		if _, ok := outFiles[dest]; !ok {
+			t.Fatal("Expected tgz to contain " + dest + ", but it didnt")
+		}
 	}
 }
 
@@ -298,4 +367,39 @@ func TestWritingToExistingTar(t *testing.T) {
 	if tarStats.Size() > 2048 {
 		t.Fatalf("tar is much larger than expected, should be < 2048 but is %d byes", tarStats.Size())
 	}
+	tar.Close()
+
+	err, files := decompressAndListFiles(tgz.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := files["test.txt"]; !ok {
+		t.Fatal("Expected tgz to contain test.txt but it didnt")
+	}
+	if _, ok := files["test2.txt"]; !ok {
+		t.Fatal("Expected tgz to contain test.txt but it didnt")
+	}
+}
+
+func decompressAndListFiles(pathToTgz string) (error, map[string]string) {
+	os.Mkdir("./fixtures/uncompressed", 0755)
+	defer os.RemoveAll("./fixtures/uncompressed")
+
+	cmd := exec.Command("tar", "-xf", pathToTgz, "-C", "./fixtures/uncompressed")
+	err := cmd.Run()
+	if err != nil {
+		return err, nil
+	}
+	ret := map[string]string{}
+
+	err = filepath.Walk("./fixtures/uncompressed", func(path string, f os.FileInfo, err error) error {
+		ret[strings.Replace(path, "fixtures/uncompressed/", "", 1)] = strings.Replace(path, "fixtures/uncompressed", "", 1)
+		return nil
+	})
+
+	if err != nil {
+		return err, nil
+	}
+
+	return nil, ret
 }
