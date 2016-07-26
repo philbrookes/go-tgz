@@ -1,4 +1,4 @@
-package tgz_builder
+package tgz
 
 import (
 	"archive/tar"
