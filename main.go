@@ -2,9 +2,13 @@ package tgz_builder
 
 import (
 	"archive/tar"
+	"bytes"
 	"compress/gzip"
+	"errors"
 	"io"
+	"io/ioutil"
 	"os"
+	"time"
 )
 
 type Tgz struct {
@@ -12,9 +16,10 @@ type Tgz struct {
 	tgzFile   *os.File
 	tarWriter *tar.Writer
 	gzWriter  *gzip.Writer
+	finished  bool
 }
 
-func CreateTgz(path string) (error, *Tgz) {
+func New(path string) (error, *Tgz) {
 	tgz := Tgz{Path: path}
 	var err error
 	err, tgz.tgzFile = tgz.getTarFile()
@@ -24,63 +29,64 @@ func CreateTgz(path string) (error, *Tgz) {
 
 	tgz.gzWriter = gzip.NewWriter(tgz.tgzFile)
 	tgz.tarWriter = tar.NewWriter(tgz.gzWriter)
+	tgz.finished = false
+
 	return nil, &tgz
 }
 
-//although I understand the this ref it isn't how it is done in golang it would be something like tgz
-func (this *Tgz) AddFile(src string, dest string) error {
+func (tgz *Tgz) AddFileByPath(srcFile string, dest string) error {
+	if src, err := ioutil.ReadFile(srcFile); err == nil {
+		return tgz.AddFileByContent(src, dest)
+	} else {
+		return err
+	}
+}
+
+func (tgz *Tgz) AddFileByContent(src []byte, dest string) error {
+	if tgz.finished == true {
+		return errors.New("Gzip file has already been finished, cannot add more files")
+	}
 	var (
 		err error
-		srcFile *os.File
 	)
 
-	//srcFile could be nil so close after we know there is no error
-	srcFile, err = os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer srcFile.Close()
-	//not idiomatic I would do the same as above
-	stat, err := srcFile.Stat()
-	if err != nil {
-		return err
-	}
 	header := new(tar.Header)
 	header.Name = dest
-	header.Size = stat.Size()
-	header.Mode = int64(stat.Mode())
-	header.ModTime = stat.ModTime()
-	// write the header to the tarball archive
-	if err := this.tarWriter.WriteHeader(header); err != nil {
+	header.Size = int64(len(src))
+	header.Mode = int64(uint32(0775))
+	header.ModTime = time.Now()
+
+	if err := tgz.tarWriter.WriteHeader(header); err != nil {
 		return err
 	}
 
-	if _, err = io.Copy(this.tarWriter, srcFile); err != nil {
+	if _, err = io.Copy(tgz.tarWriter, bytes.NewReader(src)); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (this *Tgz) Finish() {
-	this.tarWriter.Close()
-	this.gzWriter.Close()
-	this.tgzFile.Close()
+func (tgz *Tgz) Finish() {
+	tgz.finished = true
+	tgz.tarWriter.Close()
+	tgz.gzWriter.Close()
+	tgz.tgzFile.Close()
 }
 
-func (this *Tgz) getTarFile() (error, *os.File) {
+func (tgz *Tgz) getTarFile() (error, *os.File) {
 	var (
 		f   *os.File
 		err error
 	)
 
-	if _, err = os.Stat(this.Path); os.IsNotExist(err) {
-		f, err = os.Create(this.Path)
+	if _, err = os.Stat(tgz.Path); os.IsNotExist(err) {
+		f, err = os.Create(tgz.Path)
 		if err != nil {
 			return err, nil
 		}
 	} else {
-		f, err = os.OpenFile(this.Path, os.O_RDWR, os.ModePerm)
+		f, err = os.OpenFile(tgz.Path, os.O_RDWR, os.ModePerm)
 		if err != nil {
 			return err, nil
 		}
@@ -88,16 +94,3 @@ func (this *Tgz) getTarFile() (error, *os.File) {
 
 	return nil, f
 }
-
-//I don't think I would have it this way and would just add this to the Create method
-//func (this *Tgz) init() (error) {
-//	var err error
-//	err, this.tgzFile = this.getTarFile()
-//	if err != nil {
-//		return err
-//	}
-//
-//	this.gzWriter  = gzip.NewWriter(this.tgzFile)
-//	this.tarWriter = tar.NewWriter(this.gzWriter)
-//	return nil
-//}
