@@ -6,10 +6,11 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"bytes"
 )
 
 func TestNewTgz(t *testing.T) {
-	err, tgz := New("./fixtures/bar.tar.gz")
+	tgz, err := New("./fixtures/bar.tar.gz")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -22,7 +23,7 @@ func TestNewTgz(t *testing.T) {
 
 func TestAddingAFileByContent(t *testing.T) {
 	tarFile := "./fixtures/oneFileByContent.tar.gz"
-	err, tgz := New(tarFile)
+	tgz, err := New(tarFile)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -33,7 +34,7 @@ func TestAddingAFileByContent(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	tgz.Finish()
+	tgz.Close()
 
 	tar, _ := os.Open(tgz.Path)
 	tarStats, _ := tar.Stat()
@@ -45,7 +46,7 @@ func TestAddingAFileByContent(t *testing.T) {
 	}
 	tar.Close()
 
-	err, files := decompressAndListFiles(tgz.Path)
+	files, err := decompressAndListFiles(tgz.Path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -57,7 +58,7 @@ func TestAddingAFileByContent(t *testing.T) {
 
 func TestAddingTwoFilesByContent(t *testing.T) {
 	tarFile := "./fixtures/twoFilesByContent.tar.gz"
-	err, tgz := New(tarFile)
+	tgz, err := New(tarFile)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,7 +73,7 @@ func TestAddingTwoFilesByContent(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	tgz.Finish()
+	tgz.Close()
 
 	tar, _ := os.Open(tgz.Path)
 	tarStats, _ := tar.Stat()
@@ -84,7 +85,7 @@ func TestAddingTwoFilesByContent(t *testing.T) {
 	}
 	tar.Close()
 
-	err, files := decompressAndListFiles(tgz.Path)
+	files, err := decompressAndListFiles(tgz.Path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -98,7 +99,7 @@ func TestAddingTwoFilesByContent(t *testing.T) {
 
 func TestAddingAFileByPath(t *testing.T) {
 	tarFile := "./fixtures/oneFileByPath.tar.gz"
-	err, tgz := New(tarFile)
+	tgz, err := New(tarFile)
 
 	if err != nil {
 		t.Fatal(err)
@@ -111,7 +112,7 @@ func TestAddingAFileByPath(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	tgz.Finish()
+	tgz.Close()
 
 	tar, _ := os.Open(tgz.Path)
 	tarStats, _ := tar.Stat()
@@ -123,7 +124,7 @@ func TestAddingAFileByPath(t *testing.T) {
 	}
 	tar.Close()
 
-	err, files := decompressAndListFiles(tgz.Path)
+	files, err := decompressAndListFiles(tgz.Path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -132,9 +133,94 @@ func TestAddingAFileByPath(t *testing.T) {
 	}
 }
 
+func TestAddingAFileByBuffer(t *testing.T) {
+	tarFile := "./fixtures/oneFileByBuffer.tar.gz"
+	tgz, err := New(tarFile)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer os.Remove(tgz.Path)
+
+	b := &bytes.Buffer{}
+	b.Write([]byte("test\n"))
+	b.Write([]byte("test 2\n"))
+
+	err = tgz.AddFileByBuffer(b, "test.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tgz.Close()
+
+	tar, _ := os.Open(tgz.Path)
+	tarStats, _ := tar.Stat()
+	if tarStats.Size() == 0 {
+		t.Fatalf("tar file should be > 0 bytes, but is %d bytes", tarStats.Size())
+	}
+	if tarStats.Size() > 2048 {
+		t.Fatalf("tar is much larger than expected, should be < 2048 but is %d byes", tarStats.Size())
+	}
+	tar.Close()
+
+	files, err := decompressAndListFiles(tgz.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := files["test.txt"]; !ok {
+		t.Fatal("Expected tgz to contain test.txt but it didnt")
+	}
+}
+
+
+func TestAddingTwoFilesByBuffer(t *testing.T) {
+	tarFile := "./fixtures/twoFilesByBuffer.tar.gz"
+	tgz, err := New(tarFile)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer os.Remove(tgz.Path)
+
+	b := &bytes.Buffer{}
+	b.Write([]byte("test\n"))
+	b.Write([]byte("test 2\n"))
+
+	err = tgz.AddFileByBuffer(b, "test.txt")
+	err = tgz.AddFileByBuffer(b, "test2.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tgz.Close()
+
+	tar, _ := os.Open(tgz.Path)
+	tarStats, _ := tar.Stat()
+	if tarStats.Size() == 0 {
+		t.Fatalf("tar file should be > 0 bytes, but is %d bytes", tarStats.Size())
+	}
+	if tarStats.Size() > 2048 {
+		t.Fatalf("tar is much larger than expected, should be < 2048 but is %d byes", tarStats.Size())
+	}
+	tar.Close()
+
+	files, err := decompressAndListFiles(tgz.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := files["test.txt"]; !ok {
+		t.Fatal("Expected tgz to contain test.txt but it didnt")
+	}
+	if _, ok := files["test2.txt"]; !ok {
+		t.Fatal("Expected tgz to contain test2.txt but it didnt")
+	}
+}
+
 func TestAddingTwoFilesByPath(t *testing.T) {
 	tarFile := "./fixtures/twoFileByPath.tar.gz"
-	err, tgz := New(tarFile)
+	tgz, err := New(tarFile)
 
 	if err != nil {
 		t.Fatal(err)
@@ -151,7 +237,7 @@ func TestAddingTwoFilesByPath(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	tgz.Finish()
+	tgz.Close()
 
 	tar, _ := os.Open(tgz.Path)
 	tarStats, _ := tar.Stat()
@@ -163,7 +249,7 @@ func TestAddingTwoFilesByPath(t *testing.T) {
 	}
 	tar.Close()
 
-	err, files := decompressAndListFiles(tgz.Path)
+	files, err := decompressAndListFiles(tgz.Path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -177,7 +263,7 @@ func TestAddingTwoFilesByPath(t *testing.T) {
 
 func TestAddingMixedFiles(t *testing.T) {
 	tarFile := "./fixtures/twoMixedFiles.tar.gz"
-	err, tgz := New(tarFile)
+	tgz, err := New(tarFile)
 
 	if err != nil {
 		t.Fatal(err)
@@ -194,7 +280,7 @@ func TestAddingMixedFiles(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	tgz.Finish()
+	tgz.Close()
 
 	tar, _ := os.Open(tgz.Path)
 	tarStats, _ := tar.Stat()
@@ -206,7 +292,7 @@ func TestAddingMixedFiles(t *testing.T) {
 	}
 	tar.Close()
 
-	err, files := decompressAndListFiles(tgz.Path)
+	files, err := decompressAndListFiles(tgz.Path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -220,7 +306,7 @@ func TestAddingMixedFiles(t *testing.T) {
 
 func TestAddingFilesInSubdirs(t *testing.T) {
 	tarFile := "./fixtures/filesInSubdirs.tar.gz"
-	err, tgz := New(tarFile)
+	tgz, err := New(tarFile)
 
 	if err != nil {
 		t.Fatal(err)
@@ -244,7 +330,7 @@ func TestAddingFilesInSubdirs(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	tgz.Finish()
+	tgz.Close()
 
 	tar, _ := os.Open(tgz.Path)
 	tarStats, _ := tar.Stat()
@@ -256,7 +342,7 @@ func TestAddingFilesInSubdirs(t *testing.T) {
 	}
 	tar.Close()
 
-	err, outFiles := decompressAndListFiles(tgz.Path)
+	outFiles, err := decompressAndListFiles(tgz.Path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -267,56 +353,9 @@ func TestAddingFilesInSubdirs(t *testing.T) {
 	}
 }
 
-func TestWritingToAFinishedTgz(t *testing.T) {
-	tarFile := "./fixtures/filesInSubdirs.tar.gz"
-	err, tgz := New(tarFile)
-
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	defer os.Remove(tgz.Path)
-	files := map[string]string{
-		"files/test1.txt":       "sdfsdfsdfs\n",
-		"files/test2.txt":       "sdfsdfsdfs\n",
-		"files/test3.txt":       "sdfsdfsdfs\n",
-		"files/test4.txt":       "sdfsdfsdfs\n",
-		"other_files/test1.txt": "sdfsdfsdfs\n",
-		"other_files/test2.txt": "sdfsdfsdfs\n",
-		"other_files/test3.txt": "sdfsdfsdfs\n",
-		"other_files/test4.txt": "sdfsdfsdfs\n",
-	}
-
-	for dest, content := range files {
-		err = tgz.AddFileByContent([]byte(content), dest)
-		if err != nil {
-			t.Fatal(err)
-		}
-	}
-	tgz.Finish()
-
-	tar, _ := os.Open(tgz.Path)
-	tarStats, _ := tar.Stat()
-	if tarStats.Size() == 0 {
-		t.Fatalf("tar file should be > 0 bytes, but is %d bytes", tarStats.Size())
-	}
-	if tarStats.Size() > 2048 {
-		t.Fatalf("tar is much larger than expected, should be < 2048 but is %d byes", tarStats.Size())
-	}
-
-	err = tgz.AddFileByContent([]byte("sdfsdfsdfs\n"), "test.txt")
-	if err.Error() != "Gzip file has already been finished, cannot add more files" {
-		t.Fatal("tgz should not allow more files to be added once finish has been called")
-	}
-	err = tgz.AddFileByPath("./fixtures/test.txt", "test.txt")
-	if err.Error() != "Gzip file has already been finished, cannot add more files" {
-		t.Fatal("tgz should not allow more files to be added once finish has been called")
-	}
-}
-
 func TestWritingToExistingTar(t *testing.T) {
 	tarFile := "./fixtures/rewriteTo.tar.gz"
-	err, tgz := New(tarFile)
+	tgz, err := New(tarFile)
 
 	if err != nil {
 		t.Fatal(err)
@@ -333,7 +372,7 @@ func TestWritingToExistingTar(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	tgz.Finish()
+	tgz.Close()
 
 	tar, _ := os.Open(tgz.Path)
 	tarStats, _ := tar.Stat()
@@ -344,7 +383,7 @@ func TestWritingToExistingTar(t *testing.T) {
 		t.Fatalf("tar is much larger than expected, should be < 2048 but is %d byes", tarStats.Size())
 	}
 
-	err, tgz = New(tarFile)
+	tgz, err = New(tarFile)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -358,7 +397,7 @@ func TestWritingToExistingTar(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	tgz.Finish()
+	tgz.Close()
 	tar, _ = os.Open(tgz.Path)
 	tarStats, _ = tar.Stat()
 	if tarStats.Size() == 0 {
@@ -369,7 +408,7 @@ func TestWritingToExistingTar(t *testing.T) {
 	}
 	tar.Close()
 
-	err, files := decompressAndListFiles(tgz.Path)
+	files, err := decompressAndListFiles(tgz.Path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -381,14 +420,14 @@ func TestWritingToExistingTar(t *testing.T) {
 	}
 }
 
-func decompressAndListFiles(pathToTgz string) (error, map[string]string) {
+func decompressAndListFiles(pathToTgz string) (map[string]string, error) {
 	os.Mkdir("./fixtures/uncompressed", 0755)
 	defer os.RemoveAll("./fixtures/uncompressed")
 
 	cmd := exec.Command("tar", "-xf", pathToTgz, "-C", "./fixtures/uncompressed")
 	err := cmd.Run()
 	if err != nil {
-		return err, nil
+		return nil, err
 	}
 	ret := map[string]string{}
 
@@ -398,8 +437,8 @@ func decompressAndListFiles(pathToTgz string) (error, map[string]string) {
 	})
 
 	if err != nil {
-		return err, nil
+		return nil, err
 	}
 
-	return nil, ret
+	return ret, nil
 }
