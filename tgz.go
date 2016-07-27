@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-type Tgz struct {
+type Archive struct {
 	Path      string
 	tgzFile   *os.File
 	tarWriter *tar.Writer
@@ -19,8 +19,8 @@ type Tgz struct {
 	finished  bool
 }
 
-func New(path string) (*Tgz, error) {
-	tgz := Tgz{Path: path}
+func New(path string) (*Archive, error) {
+	tgz := Archive{Path: path}
 	var err error
 	tgz.tgzFile, err = tgz.getTarFile()
 	if err != nil {
@@ -34,11 +34,11 @@ func New(path string) (*Tgz, error) {
 	return &tgz, nil
 }
 
-func (tgz *Tgz) AddFileByBuffer(b *bytes.Buffer, dest string) error {
+func (tgz *Archive) AddFileByBuffer(b *bytes.Buffer, dest string) error {
 	return tgz.AddFileByContent(b.Bytes(), dest)
 }
 
-func (tgz *Tgz) AddFileByPath(srcFile string, dest string) error {
+func (tgz *Archive) AddFileByPath(srcFile string, dest string) error {
 	if src, err := ioutil.ReadFile(srcFile); err == nil {
 		return tgz.AddFileByContent(src, dest)
 	} else {
@@ -46,7 +46,7 @@ func (tgz *Tgz) AddFileByPath(srcFile string, dest string) error {
 	}
 }
 
-func (tgz *Tgz) AddFileByContent(src []byte, dest string) error {
+func (tgz *Archive) AddFileByContent(src []byte, dest string) error {
 	if tgz.finished == true {
 		return errors.New("Gzip file has already been finished, cannot add more files")
 	}
@@ -71,14 +71,14 @@ func (tgz *Tgz) AddFileByContent(src []byte, dest string) error {
 	return nil
 }
 
-func (tgz *Tgz) Close() {
+func (tgz *Archive) Close() {
 	tgz.finished = true
 	tgz.tarWriter.Close()
 	tgz.gzWriter.Close()
 	tgz.tgzFile.Close()
 }
 
-func (tgz *Tgz) getTarFile() (*os.File, error) {
+func (tgz *Archive) getTarFile() (*os.File, error) {
 	var (
 		f   *os.File
 		err error
