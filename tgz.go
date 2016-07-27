@@ -4,7 +4,6 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
-	"errors"
 	"io"
 	"io/ioutil"
 	"os"
@@ -16,7 +15,6 @@ type Archive struct {
 	tgzFile   *os.File
 	tarWriter *tar.Writer
 	gzWriter  *gzip.Writer
-	finished  bool
 }
 
 func New(path string) (*Archive, error) {
@@ -29,7 +27,6 @@ func New(path string) (*Archive, error) {
 
 	tgz.gzWriter = gzip.NewWriter(tgz.tgzFile)
 	tgz.tarWriter = tar.NewWriter(tgz.gzWriter)
-	tgz.finished = false
 
 	return &tgz, nil
 }
@@ -47,9 +44,6 @@ func (tgz *Archive) AddFileByPath(srcFile string, dest string) error {
 }
 
 func (tgz *Archive) AddFileByContent(src []byte, dest string) error {
-	if tgz.finished == true {
-		return errors.New("Gzip file has already been finished, cannot add more files")
-	}
 	var (
 		err error
 	)
@@ -72,7 +66,6 @@ func (tgz *Archive) AddFileByContent(src []byte, dest string) error {
 }
 
 func (tgz *Archive) Close() {
-	tgz.finished = true
 	tgz.tarWriter.Close()
 	tgz.gzWriter.Close()
 	tgz.tgzFile.Close()
