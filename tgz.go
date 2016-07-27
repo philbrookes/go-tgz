@@ -19,19 +19,23 @@ type Tgz struct {
 	finished  bool
 }
 
-func New(path string) (error, *Tgz) {
+func New(path string) (*Tgz, error) {
 	tgz := Tgz{Path: path}
 	var err error
-	err, tgz.tgzFile = tgz.getTarFile()
+	tgz.tgzFile, err = tgz.getTarFile()
 	if err != nil {
-		return err, nil
+		return nil, err
 	}
 
 	tgz.gzWriter = gzip.NewWriter(tgz.tgzFile)
 	tgz.tarWriter = tar.NewWriter(tgz.gzWriter)
 	tgz.finished = false
 
-	return nil, &tgz
+	return &tgz, nil
+}
+
+func (tgz *Tgz) AddFileByBuffer(b *bytes.Buffer, dest string) error {
+	return tgz.AddFileByContent(b.Bytes(), dest)
 }
 
 func (tgz *Tgz) AddFileByPath(srcFile string, dest string) error {
@@ -67,14 +71,14 @@ func (tgz *Tgz) AddFileByContent(src []byte, dest string) error {
 	return nil
 }
 
-func (tgz *Tgz) Finish() {
+func (tgz *Tgz) Close() {
 	tgz.finished = true
 	tgz.tarWriter.Close()
 	tgz.gzWriter.Close()
 	tgz.tgzFile.Close()
 }
 
-func (tgz *Tgz) getTarFile() (error, *os.File) {
+func (tgz *Tgz) getTarFile() (*os.File, error) {
 	var (
 		f   *os.File
 		err error
@@ -83,14 +87,14 @@ func (tgz *Tgz) getTarFile() (error, *os.File) {
 	if _, err = os.Stat(tgz.Path); os.IsNotExist(err) {
 		f, err = os.Create(tgz.Path)
 		if err != nil {
-			return err, nil
+			return nil, err
 		}
 	} else {
 		f, err = os.OpenFile(tgz.Path, os.O_RDWR, os.ModePerm)
 		if err != nil {
-			return err, nil
+			return nil, err
 		}
 	}
 
-	return nil, f
+	return f, nil
 }
