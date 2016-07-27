@@ -11,7 +11,7 @@ import (
 
 Create a new tgz object:
 ```
-err, tgz := tgz.New("./fixtures/bar.tar.gz")
+tgz, err := tgz.New("./fixtures/bar.tar.gz")
 if err != nil {
     t.Fatal(err)
 }
@@ -20,7 +20,16 @@ if err != nil {
 Add a file by content:
 ```
 //First argument is the content in a byte array, second argument is where in the tgz it should be stored
-err = tgz.AddFileByContent([]byte("sdfsdfsdfs\n"), "test.txt")
+err = tgz.AddFileByContent([]byte("sdfsdfsdfs\n"), "file.txt")
+if err != nil {
+    t.Fatal(err)
+}
+```
+
+Or add a file from a populated buffer:
+```
+//First argument is the content in a byte buffer, second argument is where in the tgz it should be stored
+err = tgz.AddFileByBuffer(&byteBuffer, "file.txt")
 if err != nil {
     t.Fatal(err)
 }
@@ -37,7 +46,7 @@ if err != nil {
 
 Commit the changes to the tar.gz file:
 ```
-tgz.Finish()
+tgz.Close()
 ```
 
 ## Contributing
