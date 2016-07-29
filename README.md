@@ -11,42 +11,15 @@ import (
 
 Create a new tgz object:
 ```
-tgz, err := tgz.New("./fixtures/bar.tar.gz")
-if err != nil {
-    t.Fatal(err)
-}
-```
+archiveFile, _ := os.Open("path/to/file.tar.gz")
+tar, _ := NewTgz(archiveFile)
+writer := tarFile.GetWriterToFile(filepath.Join(projectPath, resource+"."+extension))
 
-Add a file by content:
-```
-//First argument is the content in a byte array, second argument is where in the tgz it should be stored
-err = tgz.AddFileByContent([]byte("sdfsdfsdfs\n"), "file.txt")
-if err != nil {
-    t.Fatal(err)
-}
-```
+writer.Write([]byte("data"))
 
-Or add a file from a populated buffer:
-```
-//First argument is the content in a byte buffer, second argument is where in the tgz it should be stored
-err = tgz.AddFileByBuffer(&byteBuffer, "file.txt")
-if err != nil {
-    t.Fatal(err)
-}
-```
-
-Or add an existing file:
-```
-//First argument is the path to the local file, second argument is where in the tgz it should be stored
-err = tgz.AddFileByPath("/path/to/file", "file.txt")
-if err != nil {
-    t.Fatal(err)
-}
-```
-
-Commit the changes to the tar.gz file:
-```
-tgz.Close()
+writer.Close()
+tar.Close()
+archiveFile.Close()
 ```
 
 ## Contributing
